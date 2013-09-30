@@ -49,6 +49,15 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_SPINCTRL, self.OnSpin, self.m_spin2)
         bSizer2.Add(self.m_spin2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
 
+        self.m_text3 = wx.StaticText(self, wx.ID_ANY, u"Diff threshold (tens):", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_text3.Wrap(-1)
+        bSizer2.Add(self.m_text3, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+
+        self.m_spin3 = wx.SpinCtrl(self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize,
+                                   wx.SP_ARROW_KEYS, 0, 10, 0.1)
+        self.Bind(wx.EVT_SPINCTRL, self.OnSpin, self.m_spin3)
+        bSizer2.Add(self.m_spin3, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+
         self.m_check_live = wx.CheckBox(self, wx.ID_ANY, u"Live Update", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_check_live.SetValue(True)
         bSizer2.Add(self.m_check_live, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
@@ -112,8 +121,10 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
         self.m_spin1.SetRange(0,len(self.data))
         self.m_spin2.SetRange(0,len(self.data))
+        self.m_spin3.SetRange(0,100)
         self.m_spin1.SetValue(len(self.data))
         self.m_spin2.SetValue(len(self.data))
+        self.m_spin3.SetValue(DIFF)
         self.Draw(self.data)
 
     def Draw(self,data):
@@ -121,7 +132,8 @@ class MainFrame(wx.Frame):
         self.axes = self.fig.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
         idx = np.arange(len(data))
         self.axes.plot( idx,data )
-        (maxp,minp) = self.Extremes(data)
+        diff = self.m_spin3.GetValue()/10.0
+        (maxp,minp) = self.Extremes(data,diff)
         maxsub = self.GetSub(data,maxp)
         self.axes.plot( maxp,maxsub,'ro' )
         minsub = self.GetSub(data,minp)
@@ -131,14 +143,14 @@ class MainFrame(wx.Frame):
     def OnUpdate(self, event):
         limit1 = self.m_spin1.GetValue()
         limit2 = self.m_spin2.GetValue()
-        fftdata = np.fft.fft(self.data)
         if limit2 > limit1:
+            fftdata = np.fft.fft(self.data)
             for i in range(limit1,limit2):
                 fftdata[i] = 0
-
-        fildata = np.fft.ifft(fftdata)
-
-        self.Draw(fildata)
+            fildata = np.fft.ifft(fftdata)
+            self.Draw(fildata)
+        else:
+            self.Draw(self.data)
 
     def OnSpin(self,event):
         val1 = self.m_spin1.GetValue()
@@ -149,10 +161,9 @@ class MainFrame(wx.Frame):
             self.OnUpdate(event)
 
 
-    def Extremes(self,data):
+    def Extremes(self,data,diff):
         minpoints = []
         maxpoints = []
-        diff = DIFF
         lastmax = lastmin = 1
         lookMax = True
         lastIsMax = True
@@ -164,10 +175,12 @@ class MainFrame(wx.Frame):
                     if len(maxpoints)>0 and lastIsMax == True and lastmax < data[i]:
                         maxpoints.pop()
                         maxpoints.append(i)
-                    if len(maxpoints)==0 or lastIsMax == False:
+                        lastmax = data[i]
+                        lastIsMax = True
+                    elif len(maxpoints)==0 or lastIsMax == False:
                         maxpoints.append(i)
-                    lastIsMax = True
-                    lastmax = data[i]
+                        lastmax = data[i]
+                        lastIsMax = True
             if data[i] < data[i-1] and data[i] < data[i+1] and lookMax == False:
                 lookMax = True
 
@@ -175,10 +188,12 @@ class MainFrame(wx.Frame):
                     if len(minpoints)>0 and lastIsMax == False and lastmin > data[i]:
                         minpoints.pop()
                         minpoints.append(i)
-                    if len(minpoints)==0 or lastIsMax == True:
+                        lastmin = data[i]
+                        lastIsMax = False
+                    elif len(minpoints)==0 or lastIsMax == True:
                         minpoints.append(i)
-                    lastIsMax = False
-                    lastmin = data[i]
+                        lastmin = data[i]
+                        lastIsMax = False
 
         # l = min(len(maxpoints)-1,len(minpoints)-1)
         # i = 1
