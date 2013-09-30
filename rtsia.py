@@ -10,6 +10,8 @@ from matplotlib.backends.backend_wxagg import \
     FigureCanvasWxAgg as FigCanvas, \
     NavigationToolbar2WxAgg as NavigationToolbar
 
+DIFF = 1
+
 
 class MainFrame(wx.Frame):
     def __init__(self, parent):
@@ -35,6 +37,7 @@ class MainFrame(wx.Frame):
 
         self.m_spin1 = wx.SpinCtrl(self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize,
                                    wx.SP_ARROW_KEYS, 0, 10, 0)
+        self.Bind(wx.EVT_SPINCTRL, self.OnSpin, self.m_spin1)
         bSizer2.Add(self.m_spin1, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
 
         self.m_text2 = wx.StaticText(self, wx.ID_ANY, u"Filter end:", wx.DefaultPosition, wx.DefaultSize, 0)
@@ -43,6 +46,7 @@ class MainFrame(wx.Frame):
 
         self.m_spin2 = wx.SpinCtrl(self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize,
                                    wx.SP_ARROW_KEYS, 0, 10, 0)
+        self.Bind(wx.EVT_SPINCTRL, self.OnSpin, self.m_spin2)
         bSizer2.Add(self.m_spin2, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
 
         self.m_check_live = wx.CheckBox(self, wx.ID_ANY, u"Live Update", wx.DefaultPosition, wx.DefaultSize, 0)
@@ -108,6 +112,8 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
         self.m_spin1.SetRange(0,len(self.data))
         self.m_spin2.SetRange(0,len(self.data))
+        self.m_spin1.SetValue(len(self.data))
+        self.m_spin2.SetValue(len(self.data))
         self.Draw(self.data)
 
     def Draw(self,data):
@@ -134,47 +140,72 @@ class MainFrame(wx.Frame):
 
         self.Draw(fildata)
 
+    def OnSpin(self,event):
+        val1 = self.m_spin1.GetValue()
+        val2 = self.m_spin2.GetValue()
+        self.m_spin1.SetRange(0,val2)
+        self.m_spin2.SetRange(val1,len(self.data))
+        if self.m_check_live.IsChecked():
+            self.OnUpdate(event)
 
-    def Extremes(self,data,diff):
+
+    def Extremes(self,data):
         minpoints = []
         maxpoints = []
-        diff = 0.2
+        diff = DIFF
         lastmax = lastmin = 1
         lookMax = True
+        lastIsMax = True
         for i in range(1,len(data)-1):
-            if data[i] > data[i-1] and data[i] >= data[i+1] and lookMax == True:
-                maxpoints.append(i)
+            if data[i] > data[i-1] and data[i] > data[i+1] and lookMax == True:
                 lookMax = False
-            if data[i] < data[i-1] and data[i] <= data[i+1] and lookMax == False:
-                minpoints.append(i)
+
+                if data[i] - lastmin > diff:
+                    if len(maxpoints)>0 and lastIsMax == True and lastmax < data[i]:
+                        maxpoints.pop()
+                        maxpoints.append(i)
+                    if len(maxpoints)==0 or lastIsMax == False:
+                        maxpoints.append(i)
+                    lastIsMax = True
+                    lastmax = data[i]
+            if data[i] < data[i-1] and data[i] < data[i+1] and lookMax == False:
                 lookMax = True
 
-        l = min(len(maxpoints)-1,len(minpoints)-1)
-        i = 1
-        if maxpoints[0]>minpoints[0]:
-            while i < l:
-                if diff > abs(data[maxpoints[i]] - data[minpoints[i]]):
-                    maxpoints.pop(i)
-                    minpoints.pop(i)
-                    l-=1
-                elif diff > abs(data[maxpoints[i]] - data[minpoints[i+1]]):
-                    maxpoints.pop(i)
-                    minpoints.pop(i+1)
-                    l-=1
-                else:
-                    i+=1
-        else:
-            while i < l:
-                if diff > abs(data[maxpoints[i]] - data[minpoints[i]]):
-                    maxpoints.pop(i)
-                    minpoints.pop(i)
-                    l-=1
-                if diff > abs(data[maxpoints[i+1]] - data[minpoints[i]]):
-                    maxpoints.pop(i+1)
-                    minpoints.pop(i)
-                    l-=1
-                else:
-                    i+=1
+                if lastmax - data[i] > diff:
+                    if len(minpoints)>0 and lastIsMax == False and lastmin > data[i]:
+                        minpoints.pop()
+                        minpoints.append(i)
+                    if len(minpoints)==0 or lastIsMax == True:
+                        minpoints.append(i)
+                    lastIsMax = False
+                    lastmin = data[i]
+
+        # l = min(len(maxpoints)-1,len(minpoints)-1)
+        # i = 1
+        # if maxpoints[0]>minpoints[0]:
+        #     while i < l:
+        #         if diff > abs(data[maxpoints[i]] - data[minpoints[i]]):
+        #             maxpoints.pop(i)
+        #             minpoints.pop(i)
+        #             l-=1
+        #         elif diff > abs(data[maxpoints[i]] - data[minpoints[i+1]]):
+        #             maxpoints.pop(i)
+        #             minpoints.pop(i+1)
+        #             l-=1
+        #         else:
+        #             i+=1
+        # else:
+        #     while i < l:
+        #         if diff > abs(data[maxpoints[i]] - data[minpoints[i]]):
+        #             maxpoints.pop(i)
+        #             minpoints.pop(i)
+        #             l-=1
+        #         if diff > abs(data[maxpoints[i+1]] - data[minpoints[i]]):
+        #             maxpoints.pop(i+1)
+        #             minpoints.pop(i)
+        #             l-=1
+        #         else:
+        #             i+=1
 
         return maxpoints, minpoints     
 
