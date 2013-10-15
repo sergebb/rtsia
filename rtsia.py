@@ -109,29 +109,32 @@ class MainFrame(wx.Frame):
 
     def OnOpen(self,event):
         self.dirname = ''
-        self.data = []
+        self.orig_data = []
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN|wx.FD_FILE_MUST_EXIST)
         if dlg.ShowModal() == wx.ID_OK:
             with open(dlg.GetPath(),"r") as f:
                 for line in f:
-                    items = line.split()
+                    items = line.split(',')
                     if len(items) < 4 or items[4].replace('.','',1).isdigit() == False:
                         continue
-                    self.data.append(float(items[4]))
+                    self.orig_data.append(float(items[4]))
+                    if len(self.orig_data)>1000:
+                        break
         dlg.Destroy()
-        self.m_spin1.SetRange(0,len(self.data))
-        self.m_spin2.SetRange(0,len(self.data))
-        self.m_spin3.SetRange(0,100)
-        self.m_spin1.SetValue(len(self.data))
-        self.m_spin2.SetValue(len(self.data))
+        self.m_spin1.SetRange(0,len(self.orig_data))
+        self.m_spin2.SetRange(0,len(self.orig_data))
+        self.m_spin3.SetRange(0,1000)
+        self.m_spin1.SetValue(len(self.orig_data))
+        self.m_spin2.SetValue(len(self.orig_data))
         self.m_spin3.SetValue(DIFF)
-        self.Draw(self.data)
+        self.Draw(self.orig_data)
 
     def Draw(self,data):
         self.fig.clf()
         self.axes = self.fig.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
         idx = np.arange(len(data))
         self.axes.plot( idx,data )
+        self.axes.plot( idx,self.orig_data )
         diff = self.m_spin3.GetValue()/10.0
         (maxp,minp) = self.Extremes(data,diff)
         maxsub = self.GetSub(data,maxp)
@@ -144,19 +147,20 @@ class MainFrame(wx.Frame):
         limit1 = self.m_spin1.GetValue()
         limit2 = self.m_spin2.GetValue()
         if limit2 > limit1:
-            fftdata = np.fft.fft(self.data)
+            fftdata = np.fft.fft(self.orig_data)
             for i in range(limit1,limit2):
                 fftdata[i] = 0
+                fftdata[-i] = 0
             fildata = np.fft.ifft(fftdata)
             self.Draw(fildata)
         else:
-            self.Draw(self.data)
+            self.Draw(self.orig_data)
 
     def OnSpin(self,event):
         val1 = self.m_spin1.GetValue()
         val2 = self.m_spin2.GetValue()
         self.m_spin1.SetRange(0,val2)
-        self.m_spin2.SetRange(val1,len(self.data))
+        self.m_spin2.SetRange(val1,len(self.orig_data))
         if self.m_check_live.IsChecked():
             self.OnUpdate(event)
 
