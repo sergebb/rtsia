@@ -219,7 +219,7 @@ def main():
 		
 	maxpoints,minpoints = Extremes(data_price)
 
-	deals = Normalize(deals)
+	# deals = Normalize(deals)
 
 	# print maxpoints
 	# print minpoints

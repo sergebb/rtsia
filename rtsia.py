@@ -118,7 +118,7 @@ class MainFrame(wx.Frame):
                     if len(items) < 4 or items[4].replace('.','',1).isdigit() == False:
                         continue
                     self.orig_data.append(float(items[4]))
-                    if len(self.orig_data)>1000:
+                    if len(self.orig_data)>10000:
                         break
         dlg.Destroy()
         self.m_spin1.SetRange(0,len(self.orig_data))
@@ -133,8 +133,8 @@ class MainFrame(wx.Frame):
         self.fig.clf()
         self.axes = self.fig.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
         idx = np.arange(len(data))
-        self.axes.plot( idx,data )
         self.axes.plot( idx,self.orig_data )
+        self.axes.plot( idx,data )
         diff = self.m_spin3.GetValue()/10.0
         (maxp,minp) = self.Extremes(data,diff)
         maxsub = self.GetSub(data,maxp)
