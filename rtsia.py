@@ -3,6 +3,9 @@
 import wx
 import numpy as np
 import scipy as sp
+from datetime import datetime
+from datetime import timedelta
+import time
 import matplotlib
 matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
@@ -11,6 +14,10 @@ from matplotlib.backends.backend_wxagg import \
     NavigationToolbar2WxAgg as NavigationToolbar
 
 DIFF = 1
+
+DIFF_LIMIT = 1000
+
+N_LIMIT = 10000
 
 
 class MainFrame(wx.Frame):
@@ -112,18 +119,30 @@ class MainFrame(wx.Frame):
         self.orig_data = []
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN|wx.FD_FILE_MUST_EXIST)
         if dlg.ShowModal() == wx.ID_OK:
+            deal_prev_time = 0
             with open(dlg.GetPath(),"r") as f:
                 for line in f:
                     items = line.split(',')
                     if len(items) < 4 or items[4].replace('.','',1).isdigit() == False:
                         continue
+                        
+                    date = items[2]
+                    deal_time = datetime.strptime(date, "%Y%m%d%H%M%S%f")
+                    if deal_prev_time == 0:
+                        deal_prev_time = deal_time
+
+                    if deal_prev_time == deal_time:
+                        continue
+                    else:
+                        deal_prev_time = deal_time
+
                     self.orig_data.append(float(items[4]))
-                    if len(self.orig_data)>10000:
+                    if len(self.orig_data)>N_LIMIT and N_LIMIT!=0:
                         break
         dlg.Destroy()
         self.m_spin1.SetRange(0,len(self.orig_data))
         self.m_spin2.SetRange(0,len(self.orig_data))
-        self.m_spin3.SetRange(0,1000)
+        self.m_spin3.SetRange(0,DIFF_LIMIT)
         self.m_spin1.SetValue(len(self.orig_data))
         self.m_spin2.SetValue(len(self.orig_data))
         self.m_spin3.SetValue(DIFF)
@@ -198,33 +217,6 @@ class MainFrame(wx.Frame):
                         minpoints.append(i)
                         lastmin = data[i]
                         lastIsMax = False
-
-        # l = min(len(maxpoints)-1,len(minpoints)-1)
-        # i = 1
-        # if maxpoints[0]>minpoints[0]:
-        #     while i < l:
-        #         if diff > abs(data[maxpoints[i]] - data[minpoints[i]]):
-        #             maxpoints.pop(i)
-        #             minpoints.pop(i)
-        #             l-=1
-        #         elif diff > abs(data[maxpoints[i]] - data[minpoints[i+1]]):
-        #             maxpoints.pop(i)
-        #             minpoints.pop(i+1)
-        #             l-=1
-        #         else:
-        #             i+=1
-        # else:
-        #     while i < l:
-        #         if diff > abs(data[maxpoints[i]] - data[minpoints[i]]):
-        #             maxpoints.pop(i)
-        #             minpoints.pop(i)
-        #             l-=1
-        #         if diff > abs(data[maxpoints[i+1]] - data[minpoints[i]]):
-        #             maxpoints.pop(i+1)
-        #             minpoints.pop(i)
-        #             l-=1
-        #         else:
-        #             i+=1
 
         return maxpoints, minpoints     
 

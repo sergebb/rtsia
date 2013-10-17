@@ -56,19 +56,22 @@ def Extremes(data_price):
 	return maxpoints,minpoints
 
 def Normalize(deals):
+	N = deals.shape[0]
 	c_b_norm = np.amax(deals[:,0:4])/100.0
 	c_s_norm = np.amax(deals[:,4:8])/100.0
 	v_norm = np.amax(deals[:,8:12])/100.0
 	a_norm = np.amax(deals[:,12:16])/100.0
 	cp_norm = np.amax(deals[:,16])/100.0
+	ord_gap_norm = np.amax(deals[:,17])/100.0
 
-	for i in range(N-1):
+	for i in range(N):
 		for j in range(4):
 			deals[i,j]/=c_b_norm
 			deals[i,j+4]/=c_s_norm
 			deals[i,j+8]/=v_norm
 			deals[i,j+12]/=a_norm
 		deals[i,16]/=cp_norm
+		deals[i,17]/=ord_gap_norm
 	return deals
 
 def CenterPrice(deal_price):
@@ -100,6 +103,24 @@ def main():
 	color = np.zeros(N)
 	data_price =[]
 	data_time = []
+
+	orders_time = []
+	orders_type = []
+	orders_price = []
+	orders_value = []
+	orders_action = []
+
+	order_prev_len = 0 # start with zero position
+
+	deal_prev_time = 0
+
+
+	max_price = 207925
+	min_price = 168075
+
+	spect_buy = np.zeros(max_price - min_price+1)
+	spect_sell = np.zeros(max_price - min_price+1)
+
 	for line in df:
 		line_num+=1
 		# sys.stderr.write("%d\n"%line_num)
@@ -113,20 +134,36 @@ def main():
 		deal_type = line.split(',')[7]
 		# print date, "\t", price, "\t", val, "\t", deal_type,
 		deal_time = datetime.strptime(date, "%Y%m%d%H%M%S%f")
+		if deal_prev_time == 0:
+			deal_prev_time = deal_time
+
 		while True:
 			ordline = of.readline()
 			if ordline[0] == '#':
 				continue
+			orders_time.append( datetime.strptime(ordline.split(',')[3], "%Y%m%d%H%M%S%f") )
+			orders_type.append( ordline.split(',')[2] )
+			orders_price.append( int(ordline.split(',')[6].split('.')[0]) )
+			orders_value.append( int(ordline.split(',')[7]) )
+			orders_action.append( int(ordline.split(',')[5]) )
+
+			if orders_action == 1:
+				change_val = 1*orders_value
+			else:
+				change_val = -1*orders_value
+
 			if ordline.split(',')[2] == 'B':
 				ord_time_buy = datetime.strptime(ordline.split(',')[3], "%Y%m%d%H%M%S%f")
 				order_time_buy.append(ord_time_buy)
 				ord_values_buy.append(int(ordline.split(',')[7]))
+
 				if(ord_time_buy>deal_time):
 					break
 			elif ordline.split(',')[2] == 'S':
 				ord_time_sell = datetime.strptime(ordline.split(',')[3], "%Y%m%d%H%M%S%f")
 				order_time_sell.append(ord_time_sell)
 				ord_values_sell.append(int(ordline.split(',')[7]))
+
 				if(ord_time_sell>deal_time):
 					break
 
@@ -141,8 +178,35 @@ def main():
 				order_time_sell.pop(0)
 				ord_values_sell.pop(0)
 			else: break
-		
 
+		for i in range(order_prev_len, len(orders_price)):
+			if orders_action[i] == 1:
+				change = 1
+			else:
+				change = -1
+			if orders_type[i] == 'B':
+				spect_buy[orders_price[i] - min_price]+=change*orders_value[i]
+			elif orders_type[i] == 'S':
+				spect_sell[orders_price[i] - min_price]+=change*orders_value[i]
+
+		order_prev_len = len(orders_price) #used on next step
+
+		idx = range(len(spect_buy))
+
+		ord_sell_min = 0
+		ord_buy_max = 0
+		ord_pull_gap= 0
+
+		for i in range(len(spect_sell)):
+			if spect_sell[i]>0:
+				ord_sell_min = i
+				break
+		for i in range(len(spect_sell)-1,0,-1):
+			if spect_buy[i]>0:
+				ord_buy_max = i
+				break
+		ord_pull_gap = ord_sell_min - ord_buy_max
+		
 
 		# time1 = datetime.timedelta([days[, seconds[, microseconds[, milliseconds[, minutes[, hours[, weeks]]]]]]])
 		time1 = timedelta(microseconds=200)
@@ -208,18 +272,29 @@ def main():
 		else:
 			cp = price - center_price
 		# newdata = [time.mktime(deal_time.timetuple()),price,val,c1,c2,c3]
-		newdata = [c1b,c2b,c3b,c4b,c1s,c2s,c3s,c4s,v1,v2,v3,v4,a1,a2,a3,a4,cp]
+		newdata = [c1b,c2b,c3b,c4b,c1s,c2s,c3s,c4s,v1,v2,v3,v4,a1,a2,a3,a4,cp,ord_pull_gap]
+		# newdata = ord_pull_gap
 		# newdata = [c1b,c2b,c3b,c4b,cp]
 		# print time.mktime(deal_time.timetuple())
+
+		if deal_prev_time == deal_time:
+			continue
+		else:
+			deal_prev_time = deal_time
+
+
 		if deals == None:
 			deals = newdata
 		else:
 			deals = np.vstack((deals, newdata))
 
+
+		# print ord_pull_gap
+
 		
 	maxpoints,minpoints = Extremes(data_price)
 
-	# deals = Normalize(deals)
+	deals = Normalize(deals)
 
 	# print maxpoints
 	# print minpoints
@@ -253,6 +328,10 @@ def main():
 	for r in A:
 		if color[i]!=0:
 			print "%.04f\t%.04f\t%d" % (r[0], r[1],color[i])
+
+		if r[0]< -1800:
+			print deals[i-1],deals[i],deals[i+1]
+		# print "%.04f" % (r[0])
 		i+=1
 		# print [deal_time,price,val,c1,c2,c3]
 

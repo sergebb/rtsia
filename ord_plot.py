@@ -40,6 +40,7 @@ def main():
 
 	max_price = max(orders_price)
 	min_price = min(orders_price)
+	print max_price, min_price
 
 	spect_buy = np.zeros(max_price - min_price+1)
 	spect_sell = np.zeros(max_price - min_price+1)
@@ -64,6 +65,9 @@ def main():
 		if spect_buy[i]>0:
 			print i
 			break
+
+	print np.argmax(spect_sell)+min_price
+	print np.argmax(spect_buy)+min_price
 
 	imgplot = plt.plot( idx,spect_buy,'b',idx, spect_sell,'g' )
 	plt.savefig('./graph.png')
