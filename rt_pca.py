@@ -56,15 +56,17 @@ def Extremes(data_price):
 	return maxpoints,minpoints
 
 def Normalize(deals):
-	N = deals.shape[0]
+	e_num = deals.shape[0]
 	c_b_norm = np.amax(deals[:,0:4])/100.0
 	c_s_norm = np.amax(deals[:,4:8])/100.0
 	v_norm = np.amax(deals[:,8:12])/100.0
 	a_norm = np.amax(deals[:,12:16])/100.0
 	cp_norm = np.amax(deals[:,16])/100.0
 	ord_gap_norm = np.amax(deals[:,17])/100.0
+	sell_gap_norm = np.amax(deals[:,18])/100.0
+	buy_gap_norm = np.amax(deals[:,19])/100.0
 
-	for i in range(N):
+	for i in range(e_num):
 		for j in range(4):
 			deals[i,j]/=c_b_norm
 			deals[i,j+4]/=c_s_norm
@@ -72,6 +74,8 @@ def Normalize(deals):
 			deals[i,j+12]/=a_norm
 		deals[i,16]/=cp_norm
 		deals[i,17]/=ord_gap_norm
+		deals[i,18]/=sell_gap_norm
+		deals[i,19]/=buy_gap_norm
 	return deals
 
 def CenterPrice(deal_price):
@@ -89,6 +93,10 @@ def CenterPrice(deal_price):
 		return deal_price[-1]
 
 def main():
+	try:
+		N_lines = int(sys.argv[1])
+	except:
+		N_lines = N
 
 	df = open(DEAL,"r")
 	of = open(ORDER,"r")
@@ -100,7 +108,7 @@ def main():
 
 	deals = None
 	line_num=0
-	color = np.zeros(N)
+	color = np.zeros(N_lines)
 	data_price =[]
 	data_time = []
 
@@ -124,7 +132,7 @@ def main():
 	for line in df:
 		line_num+=1
 		# sys.stderr.write("%d\n"%line_num)
-		if line_num> N:
+		if line_num> N_lines:
 			break
 		if line[0] == '#':
 			continue
@@ -206,6 +214,12 @@ def main():
 				ord_buy_max = i
 				break
 		ord_pull_gap = ord_sell_min - ord_buy_max
+
+		ord_sell_max = np.argmax(spect_sell)+min_price
+		ord_buy_max = np.argmax(spect_buy)+min_price
+
+		sell_predict_gap = ord_sell_max - price
+		buy_predict_gap = price - ord_buy_max
 		
 
 		# time1 = datetime.timedelta([days[, seconds[, microseconds[, milliseconds[, minutes[, hours[, weeks]]]]]]])
@@ -272,8 +286,8 @@ def main():
 		else:
 			cp = price - center_price
 		# newdata = [time.mktime(deal_time.timetuple()),price,val,c1,c2,c3]
-		newdata = [c1b,c2b,c3b,c4b,c1s,c2s,c3s,c4s,v1,v2,v3,v4,a1,a2,a3,a4,cp,ord_pull_gap]
-		# newdata = ord_pull_gap
+		newdata = [c1b,c2b,c3b,c4b,c1s,c2s,c3s,c4s,v1,v2,v3,v4,a1,a2,a3,a4,cp,ord_pull_gap,sell_predict_gap,buy_predict_gap]
+		# newdata = [ord_pull_gap,line_num]
 		# newdata = [c1b,c2b,c3b,c4b,cp]
 		# print time.mktime(deal_time.timetuple())
 
@@ -322,15 +336,30 @@ def main():
 			j-=1
 			color[j] = -1
 
-	A = pca(deals)
+	i = 0
+	fil_deals = None
+	fil_color = []
+	for r in deals:
+		if color[i]>=2 or color[i]<=-2:
+			if fil_deals == None:
+				fil_deals = r
+			else:
+				fil_deals = np.vstack((fil_deals, r))
+
+			fil_color.append(color[i])
+
+		i+=1
+
+	# fil_color = color
+	A = pca(fil_deals)
 	# A = deals
 	i = 0
 	for r in A:
-		if color[i]!=0:
-			print "%.04f\t%.04f\t%d" % (r[0], r[1],color[i])
+		if fil_color[i]!=0:
+			print "%.04f\t%.04f\t%d" % (r[1], r[2],fil_color[i])
 
-		if r[0]< -1800:
-			print deals[i-1],deals[i],deals[i+1]
+		# if r[0]< -1800:
+		# 	print deals[i-1],deals[i],deals[i+1]
 		# print "%.04f" % (r[0])
 		i+=1
 		# print [deal_time,price,val,c1,c2,c3]
