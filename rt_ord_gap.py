@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import wx
+import sys
 import numpy as np
 import scipy as sp
 from datetime import datetime
@@ -17,8 +18,10 @@ DIFF = 1000
 
 DIFF_LIMIT = 1000
 
-N_LIMIT = 10000
+N_LIMIT = 1000
 
+DEAL="deal.cvs"
+ORDER="orders.txt" 
 
 class MainFrame(wx.Frame):
     def __init__(self, parent):
@@ -101,6 +104,17 @@ class MainFrame(wx.Frame):
         self.fig = Figure((12.4, 6.2), dpi=self.dpi)
         self.canvas = FigCanvas(self.m_panel_plot, -1, self.fig)
 
+
+        self.df = open(DEAL,"r")
+        self.of = open(ORDER,"r")
+
+
+        self.max_price = 207925
+        self.min_price = 168075
+
+        self.spect_buy = np.zeros(self.max_price - self.min_price+1)
+        self.spect_sell = np.zeros(self.max_price - self.min_price+1)
+
     def __del__(self):
         pass
 
@@ -114,32 +128,117 @@ class MainFrame(wx.Frame):
         if result == wx.ID_OK:
             self.Destroy()
 
+    def LoadOrders(self,deal_time):
+        while True:
+            ordline = self.of.readline()
+            if ordline[0] == '#':
+                continue
+            self.orders_time.append( datetime.strptime(ordline.split(',')[3], "%Y%m%d%H%M%S%f") )
+            self.orders_type.append( ordline.split(',')[2] )
+            self.orders_price.append( int(ordline.split(',')[6].split('.')[0]) )
+            self.orders_value.append( int(ordline.split(',')[7]) )
+            self.orders_action.append( int(ordline.split(',')[5]) )
+
+        #     if self.orders_action[-1] == 1:
+        #         change_val = 1*self.orders_value[-1]
+        #     else:
+        #         change_val = -1*self.orders_value[-1]
+
+        #     if ordline.split(',')[2] == 'B':
+        #         ord_time_buy = datetime.strptime(ordline.split(',')[3], "%Y%m%d%H%M%S%f")
+        #         self.order_time_buy.append(ord_time_buy)
+        #         self.ord_values_buy.append(int(ordline.split(',')[7]))
+
+        #         if(ord_time_buy>deal_time):
+        #             break
+        #     elif ordline.split(',')[2] == 'S':
+        #         ord_time_sell = datetime.strptime(ordline.split(',')[3], "%Y%m%d%H%M%S%f")
+        #         self.order_time_sell.append(ord_time_sell)
+        #         self.ord_values_sell.append(int(ordline.split(',')[7]))
+
+            if(datetime.strptime(ordline.split(',')[3], "%Y%m%d%H%M%S%f")>deal_time):
+                break
+
+        # time_empty = timedelta(seconds = 30)
+        # while True:
+        #     if self.order_time_buy[0] + time_empty < deal_time:
+        #         self.order_time_buy.pop(0)
+        #         self.ord_values_buy.pop(0)
+        #     else: break
+        # while True:
+        #     if self.order_time_sell[0] + time_empty < deal_time:
+        #         self.order_time_sell.pop(0)
+        #         self.ord_values_sell.pop(0)
+        #     else: break
+
+        for i in range(self.order_prev_len, len(self.orders_price)):
+            if self.orders_action[i] == 1:
+                change = 1
+            else:
+                change = -1
+            if self.orders_type[i] == 'B':
+                self.spect_buy[self.orders_price[i] - self.min_price]+=change*self.orders_value[i]
+            elif self.orders_type[i] == 'S':
+                self.spect_sell[self.orders_price[i] - self.min_price]+=change*self.orders_value[i]
+
+        self.order_prev_len = len(self.orders_price) #used on next step
+
+        ord_sell_min = 0
+        ord_buy_max = 0
+
+        for i in range(len(self.spect_sell)):
+            if self.spect_sell[i]>0:
+                ord_sell_min = i
+                break
+        for i in range(len(self.spect_sell)-1,0,-1):
+            if self.spect_buy[i]>0:
+                ord_buy_max = i
+                break
+        self.ord_gap.append(ord_sell_min - ord_buy_max)
+
     def OnOpen(self,event):
         self.dirname = ''
         self.orig_data = []
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN|wx.FD_FILE_MUST_EXIST)
-        if dlg.ShowModal() == wx.ID_OK:
-            deal_prev_time = 0
-            with open(dlg.GetPath(),"r") as f:
-                for line in f:
-                    items = line.split(',')
-                    if len(items) < 4 or items[4].replace('.','',1).isdigit() == False:
-                        continue
-                        
-                    date = items[2]
-                    deal_time = datetime.strptime(date, "%Y%m%d%H%M%S%f")
-                    if deal_prev_time == 0:
-                        deal_prev_time = deal_time
+        self.ord_gap = []
+        self.orders_time = []
+        self.orders_type = []
+        self.orders_price = []
+        self.orders_value = []
+        self.orders_action = []
+        self.order_time_buy = []
+        self.ord_values_buy = []
+        self.order_time_sell = []
+        self.ord_values_sell = []
 
-                    if deal_prev_time == deal_time:
-                        continue
-                    else:
-                        deal_prev_time = deal_time
+        deal_prev_time = 0
+        self.order_prev_len = 0
+        # dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN|wx.FD_FILE_MUST_EXIST)
+        # if dlg.ShowModal() == wx.ID_OK:
+        #     
+        #     with open(dlg.GetPath(),"r") as f:
 
-                    self.orig_data.append(float(items[4]))
-                    if len(self.orig_data)>N_LIMIT and N_LIMIT!=0:
-                        break
-        dlg.Destroy()
+        for line in self.df:
+            sys.stderr.write("%d\n"%len(self.orig_data))
+            items = line.split(',')
+            if len(items) < 4 or items[4].replace('.','',1).isdigit() == False:
+                continue
+                
+            date = items[2]
+            deal_time = datetime.strptime(date, "%Y%m%d%H%M%S%f")
+            if deal_prev_time == 0:
+                deal_prev_time = deal_time
+
+            if deal_prev_time == deal_time:
+                continue
+            else:
+                deal_prev_time = deal_time
+                self.orig_data.append(float(items[4]))
+                self.LoadOrders(deal_time)
+
+                if len(self.orig_data)>N_LIMIT and N_LIMIT!=0:
+                    break
+
+        # dlg.Destroy()
         tot_len = len(self.orig_data)
         tot_range = tot_len/2+tot_len%2
         self.m_spin1.SetRange(0,tot_range)
@@ -153,14 +252,15 @@ class MainFrame(wx.Frame):
     def Draw(self,data):
         self.fig.clf()
         self.axes = self.fig.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
-        idx = np.arange(len(data))
-        self.axes.plot( idx,self.orig_data )
-        self.axes.plot( idx,data )
+        idx = np.arange(len(self.ord_gap))
+        # self.axes.plot( idx,self.orig_data )
+        # self.axes.plot( idx,data )
+        self.axes.plot( idx,self.ord_gap )
         diff = self.m_spin3.GetValue()/10.0
         (maxp,minp) = self.Extremes(self.orig_data,diff)
-        maxsub = self.GetSub(self.orig_data,maxp)
+        maxsub = self.GetSub(self.ord_gap,maxp)
         self.axes.plot( maxp,maxsub,'ro' )
-        minsub = self.GetSub(self.orig_data,minp)
+        minsub = self.GetSub(self.ord_gap,minp)
         self.axes.plot( minp,minsub,'go' )
         self.canvas.draw()
 
