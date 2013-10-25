@@ -17,6 +17,10 @@ LIMIT = 30
 
 
 def main():
+	try:
+		N_lines = int(sys.argv[1])
+	except:
+		N_lines = N
 
 	df = open(DEAL,"r")
 	of = open(ORDER,"r")
@@ -35,7 +39,7 @@ def main():
 		orders_value.append( int(ord_line.split(',')[7]) )
 		orders_action.append( int(ord_line.split(',')[5]) )
 
-		if len(orders_price)>N and orders_action[-1] == 1:
+		if len(orders_price)>N_lines and orders_action[-1] == 1:
 			break
 
 	max_price = max(orders_price)

@@ -101,6 +101,8 @@ class MainFrame(wx.Frame):
         self.fig = Figure((12.4, 6.2), dpi=self.dpi)
         self.canvas = FigCanvas(self.m_panel_plot, -1, self.fig)
 
+        self.N_lines = N_LIMIT
+
     def __del__(self):
         pass
 
@@ -137,7 +139,7 @@ class MainFrame(wx.Frame):
                         deal_prev_time = deal_time
 
                     self.orig_data.append(float(items[4]))
-                    if len(self.orig_data)>N_LIMIT and N_LIMIT!=0:
+                    if len(self.orig_data)>self.N_lines and self.N_lines!=0:
                         break
         dlg.Destroy()
         tot_len = len(self.orig_data)
@@ -231,8 +233,15 @@ class MainFrame(wx.Frame):
         return sub
 
 def main():
+    try:
+        N_lines = int(sys.argv[1])
+    except:
+        N_lines = N_LIMIT
+
     app = wx.App(False)
-    frame = MainFrame(None).Show()
+    frame = MainFrame(None)
+    frame.Show()
+    frame.N_lines = N_lines
     app.MainLoop()
 
 

@@ -115,6 +115,8 @@ class MainFrame(wx.Frame):
         self.spect_buy = np.zeros(self.max_price - self.min_price+1)
         self.spect_sell = np.zeros(self.max_price - self.min_price+1)
 
+        self.N_lines = N_LIMIT
+
     def __del__(self):
         pass
 
@@ -235,7 +237,7 @@ class MainFrame(wx.Frame):
                 self.orig_data.append(float(items[4]))
                 self.LoadOrders(deal_time)
 
-                if len(self.orig_data)>N_LIMIT and N_LIMIT!=0:
+                if len(self.orig_data)>self.N_lines and self.N_lines!=0:
                     break
 
         # dlg.Destroy()
@@ -331,8 +333,15 @@ class MainFrame(wx.Frame):
         return sub
 
 def main():
+    try:
+        N_lines = int(sys.argv[1])
+    except:
+        N_lines = N_LIMIT
+
     app = wx.App(False)
-    frame = MainFrame(None).Show()
+    frame = MainFrame(None)
+    frame.Show()
+    frame.N_lines = N_lines
     app.MainLoop()
 
 
