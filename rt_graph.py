@@ -6,6 +6,7 @@ import numpy as np
 import scipy as sp
 from datetime import datetime
 from datetime import timedelta
+from itertools import izip
 import time
 import matplotlib
 matplotlib.use('WXAgg')
@@ -227,17 +228,32 @@ class MainFrame(wx.Frame):
         self.orders_speed_3.append(v3)
         self.orders_speed_4.append(v4)
 
-        self.ln_ratio = np.zeros(min(500,len(self.orig_data)-1))
-        for i in range(len(self.ln_ratio)):
-            self.ln_ratio[i] = np.log(self.orig_data[-i]/self.orig_data[-i-1])
-
-
-        if len(self.ln_ratio) == 0:
-            self.k_mean.append(0)
-            self.k_sigma.append(0)
+        self.ln_ratio = np.zeros(100)
+        b = [np.log(p2/p1) for (p1,p2) in izip(self.orig_data[::], self.orig_data[1::])]
+        i = len(self.orders_speed_1)
+        if i< 100:
+            self.ln_ratio = 0
         else:
-            self.k_mean.append(np.mean(self.ln_ratio))
-            self.k_sigma.append(np.std(self.ln_ratio))
+            self.ln_ratio = b[i-100:i]
+
+        # if len(self.orig_data) < 100:
+        #     self.k_mean.append(0)
+        #     self.k_sigma.append(0)
+        # else:
+        #     L = len(self.ln_ratio)-1
+        #     for i in range(L):
+        #         self.ln_ratio[i] = np.log(self.orig_data[-1*L+i]/self.orig_data[-1*L+i-1])
+
+        # b = [np.log(p2/p1) for (p1,p2) in izip(self.orig_data[::], self.orig_data[1::])]
+        # var = (np.std(b[i:i+100]) for i in range(0, len(b)-100+1))
+
+        # self.k_sigma = list(var)
+        # if len(self.ln_ratio) == 0 or len(self.orig_data)-1 < 100:
+        #     self.k_mean.append(0)
+        #     self.k_sigma.append(0)
+        # else:
+        self.k_mean.append(np.mean(self.ln_ratio))
+        self.k_sigma.append(np.std(self.ln_ratio))
 
 
 
@@ -377,6 +393,7 @@ class MainFrame(wx.Frame):
         elif self.m_button_mean.GetValue():
             self.axes.plot( idx,self.k_mean )
         elif self.m_button_sigma.GetValue():
+            idx = np.arange(len(self.k_sigma))
             self.axes.plot( idx,self.k_sigma )
         self.canvas_ord.draw()
 
