@@ -123,7 +123,33 @@ class MainFrame(wx.Frame):
         bSizer3.Add( self.m_button_sigma, 0, wx.ALL, 5 )
 
 
+        self.m_button_autocorr = wx.RadioButton( self, wx.ID_ANY, u"autocorr", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_autocorr)
+        bSizer3.Add( self.m_button_autocorr, 0, wx.ALL, 5 )
+
+
         bSizer1.Add(bSizer3, 0, wx.ALL|wx.EXPAND, 5)
+
+        bSizer4 = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.m_slide = wx.Slider(self, wx.ID_ANY, 0, 0, 100, wx.DefaultPosition, wx.DefaultSize, wx.SL_HORIZONTAL)
+        self.Bind(wx.EVT_SCROLL, self.OnScroll, self.m_slide)
+        bSizer4.Add(self.m_slide, 1, wx.ALL|wx.EXPAND, 5)
+
+        self.m_check_live_orders = wx.CheckBox(self, wx.ID_ANY, u"Live Update", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_check_live_orders.SetValue(True)
+        bSizer4.Add(self.m_check_live_orders, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+
+        self.m_button_play = wx.ToggleButton(self, wx.ID_ANY, u"Play", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnTogglePlay, self.m_button_play)
+        bSizer4.Add(self.m_button_play, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+
+        self.m_button_slide = wx.Button(self, wx.ID_ANY, u"Update", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.Bind(wx.EVT_BUTTON, self.OnUpdateOrders, self.m_button_slide)
+        bSizer4.Add(self.m_button_slide, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+
+
+        bSizer1.Add(bSizer4, 0, wx.ALL|wx.EXPAND, 5)
 
         self.SetSizerAndFit(bSizer1)
         self.Layout()
@@ -256,8 +282,12 @@ class MainFrame(wx.Frame):
             a = self.orig_data[-100:]
             self.ln_ratio = map((lambda x: np.log(x[0]/x[1])),izip(a[1:],a))
 
+            ln_corr = np.correlate(self.ln_ratio, self.ln_ratio, mode='full')
+            newdata = ln_corr[ln_corr.size/2:]
+
             self.k_mean.append(np.mean(self.ln_ratio))
             self.k_sigma.append(np.std(self.ln_ratio))
+            self.autocorr.append(newdata[1:])
 
 
 
@@ -283,8 +313,12 @@ class MainFrame(wx.Frame):
         # self.orders_speed_4 = []
         # self.orders_total = []
 
+        self.autocorr = []
+
         self.k_mean = []
         self.k_sigma = []
+
+        self.ord_point = 0
 
         deal_prev_time = 0
         self.order_prev_len = 0
@@ -344,6 +378,8 @@ class MainFrame(wx.Frame):
         self.m_spin1.SetValue(tot_range)
         self.m_spin2.SetValue(tot_range)
         self.m_spin3.SetValue(DIFF)
+        self.m_slide.SetRange(0,tot_len-1)
+        self.ord_point = self.m_slide.GetValue()
         self.Draw(self.orig_data)
         self.DrawOrders()
 
@@ -363,6 +399,7 @@ class MainFrame(wx.Frame):
         self.axes_plot.plot( maxp,maxsub,'ro' )
         minsub = self.GetSub(self.orig_data,minp)
         self.axes_plot.plot( minp,minsub,'go' )
+        self.axes_plot.plot( self.ord_point,self.orig_data[self.ord_point],'yo' )
         self.canvas.draw()
 
     def DrawOrders(self):
@@ -401,6 +438,9 @@ class MainFrame(wx.Frame):
             self.axes.plot( idx,self.k_mean )
         elif self.m_button_sigma.GetValue():
             self.axes.plot( idx,self.k_sigma )
+        elif self.m_button_autocorr.GetValue():
+            idx = np.arange(len(self.autocorr[self.ord_point]))
+            self.axes.plot( idx, self.autocorr[self.ord_point])
         self.canvas_ord.draw()
 
     def OnUpdateOrders(self,event):
@@ -410,13 +450,11 @@ class MainFrame(wx.Frame):
         pass
 
     def OnScroll(self,event):
-        pass
-        # if self.m_check_live_orders.IsChecked():
-        #     deal_time_stop = self.deal_time[self.ord_point]
-        #     self.DrawOrders(deal_time_stop)
-        # if self.m_check_live.IsChecked():
-        #     self.ord_point = self.m_slide.GetValue()
-        #     self.Draw(self.orig_data)
+        self.ord_point = self.m_slide.GetValue()
+        if self.m_check_live_orders.IsChecked():
+            self.DrawOrders()
+        if self.m_check_live.IsChecked():
+            self.Draw(self.orig_data)
 
     def OnUpdate(self, event):
         # pass

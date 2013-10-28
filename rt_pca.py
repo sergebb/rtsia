@@ -6,11 +6,12 @@ import re
 from datetime import datetime
 from datetime import timedelta
 import time
+from itertools import izip, groupby
 
 DEAL="deal.cvs"
 ORDER="orders.txt" 
-N = 10000
-DIFF = 30
+N = 50000
+DIFF = 100
 LIMIT = 30
 
 def pca(data):
@@ -137,7 +138,7 @@ def main():
 		if line[0] == '#':
 			continue
 		date = line.split(',')[2]
-		price = int(line.split(',')[4].split('.')[0])
+		price = float(line.split(',')[4])
 		val = int(line.split(',')[5])
 		deal_type = line.split(',')[7]
 		# print date, "\t", price, "\t", val, "\t", deal_type,
@@ -187,15 +188,15 @@ def main():
 				ord_values_sell.pop(0)
 			else: break
 
-		for i in range(order_prev_len, len(orders_price)):
-			if orders_action[i] == 1:
-				change = 1
-			else:
-				change = -1
-			if orders_type[i] == 'B':
-				spect_buy[orders_price[i] - min_price]+=change*orders_value[i]
-			elif orders_type[i] == 'S':
-				spect_sell[orders_price[i] - min_price]+=change*orders_value[i]
+		# for i in range(order_prev_len, len(orders_price)):
+		# 	if orders_action[i] == 1:
+		# 		change = 1
+		# 	else:
+		# 		change = -1
+		# 	if orders_type[i] == 'B':
+		# 		spect_buy[orders_price[i] - min_price]+=change*orders_value[i]
+		# 	elif orders_type[i] == 'S':
+		# 		spect_sell[orders_price[i] - min_price]+=change*orders_value[i]
 
 		order_prev_len = len(orders_price) #used on next step
 
@@ -205,15 +206,15 @@ def main():
 		ord_buy_max = 0
 		ord_pull_gap= 0
 
-		for i in range(len(spect_sell)):
-			if spect_sell[i]>0:
-				ord_sell_min = i
-				break
-		for i in range(len(spect_sell)-1,0,-1):
-			if spect_buy[i]>0:
-				ord_buy_max = i
-				break
-		ord_pull_gap = ord_sell_min - ord_buy_max
+		# for i in range(len(spect_sell)):
+		# 	if spect_sell[i]>0:
+		# 		ord_sell_min = i
+		# 		break
+		# for i in range(len(spect_sell)-1,0,-1):
+		# 	if spect_buy[i]>0:
+		# 		ord_buy_max = i
+		# 		break
+		# ord_pull_gap = ord_sell_min - ord_buy_max
 
 		ord_sell_max = np.argmax(spect_sell)+min_price
 		ord_buy_max = np.argmax(spect_buy)+min_price
@@ -277,6 +278,15 @@ def main():
 				break
 
 
+		if len(data_price)<=200:
+			ln_corr = None
+		else:
+			a = data_price[-200:]
+			ln_ratio = map((lambda x: np.log(x[0]/x[1])),izip(a[1:],a))
+
+			ln_corr = np.correlate(ln_ratio, ln_ratio, mode='full')
+			newdata = ln_corr[ln_corr.size/2:]
+
 		data_price.append(price)
 		data_time.append(deal_time)
 
@@ -286,7 +296,8 @@ def main():
 		else:
 			cp = price - center_price
 		# newdata = [time.mktime(deal_time.timetuple()),price,val,c1,c2,c3]
-		newdata = [c1b,c2b,c3b,c4b,c1s,c2s,c3s,c4s,v1,v2,v3,v4,a1,a2,a3,a4,cp,ord_pull_gap,sell_predict_gap,buy_predict_gap]
+		# newdata = [c1b,c2b,c3b,c4b,c1s,c2s,c3s,c4s,v1,v2,v3,v4,a1,a2,a3,a4,cp,ord_pull_gap,sell_predict_gap,buy_predict_gap]
+		
 		# newdata = [ord_pull_gap,line_num]
 		# newdata = [c1b,c2b,c3b,c4b,cp]
 		# print time.mktime(deal_time.timetuple())
@@ -296,11 +307,11 @@ def main():
 		else:
 			deal_prev_time = deal_time
 
-
-		if deals == None:
-			deals = newdata
-		else:
-			deals = np.vstack((deals, newdata))
+		if ln_corr != None:
+			if deals == None:
+				deals = newdata
+			else:
+				deals = np.vstack((deals, newdata))
 
 
 		# print ord_pull_gap
@@ -340,7 +351,7 @@ def main():
 	fil_deals = None
 	fil_color = []
 	for r in deals:
-		if color[i]>=2 or color[i]<=-2:
+		if color[i]>=1 or color[i]<=-1:
 			if fil_deals == None:
 				fil_deals = r
 			else:
