@@ -17,7 +17,7 @@ from matplotlib.backends.backend_wxagg import \
 
 DIFF = 1000
 
-DIFF_LIMIT = 1000
+DIFF_LIMIT = 10000
 
 N_LIMIT = 10000
 
@@ -32,6 +32,14 @@ class MainFrame(wx.Frame):
         self.SetSizeHintsSz(wx.DefaultSize, wx.DefaultSize)
 
         bSizer1 = wx.BoxSizer(wx.VERTICAL)
+
+        self.m_date_start = wx.StaticText(self, wx.ID_ANY, u"Date start", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_date_start.Wrap(-1)
+        bSizer1.Add(self.m_date_start, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+
+        self.m_date_end = wx.StaticText(self, wx.ID_ANY, u"Date start", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_date_end.Wrap(-1)
+        bSizer1.Add(self.m_date_end, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
 
         self.m_panel_plot = wx.Panel(self, wx.ID_ANY, wx.DefaultPosition, (1000,400), wx.TAB_TRAVERSAL)
         bSizer1.Add(self.m_panel_plot, 1, wx.EXPAND | wx.ALL, 5)
@@ -143,11 +151,11 @@ class MainFrame(wx.Frame):
         self.fig_ord = Figure((10, 4), dpi=self.dpi)
         self.canvas_ord = FigCanvas(self.m_panel_ord, -1, self.fig_ord)
 
-        self.max_price = 195000
-        self.min_price = 182000
+        # self.max_price = 195000
+        # self.min_price = 182000
 
-        self.spect_buy = np.zeros(self.max_price - self.min_price+1)
-        self.spect_sell = np.zeros(self.max_price - self.min_price+1)
+        # self.spect_buy = np.zeros(self.max_price - self.min_price+1)
+        # self.spect_sell = np.zeros(self.max_price - self.min_price+1)
 
         self.N_lines = N_LIMIT
 
@@ -183,7 +191,9 @@ class MainFrame(wx.Frame):
                 self.new_lines = order_line_num
                 break
 
-    def FreeOldOrders(self,deal_time,time = timedelta(seconds = 60)):
+    def FreeOldOrders(self,deal_time,time = None):
+        if time == None:
+            time = timedelta(seconds = 80)
         while True:
             if self.orders_time[0] + time < deal_time:
                 self.orders_time.pop(0)
@@ -193,7 +203,7 @@ class MainFrame(wx.Frame):
                 self.orders_action.pop(0)
             else: break
 
-    def CalcData(self,deal_time):
+    def CalcOrdersData(self,deal_time):
         time1 = timedelta(seconds=1)
         time2 = timedelta(seconds=5)
         time3 = timedelta(seconds=15)
@@ -214,7 +224,7 @@ class MainFrame(wx.Frame):
         else:
             incr_total = self.orders_total[-1]
 
-        for i in range(self.new_lines):
+        for i in range(1, self.new_lines+1):
             if self.orders_action[-1*i] == 1:
                 change = 1
             else:
@@ -228,32 +238,26 @@ class MainFrame(wx.Frame):
         self.orders_speed_3.append(v3)
         self.orders_speed_4.append(v4)
 
+        
+
+    def CalcDealData(self,deal_time):
         self.ln_ratio = np.zeros(100)
-        b = [np.log(p2/p1) for (p1,p2) in izip(self.orig_data[::], self.orig_data[1::])]
-        i = len(self.orders_speed_1)
-        if i< 100:
-            self.ln_ratio = 0
-        else:
-            self.ln_ratio = b[i-100:i]
-
-        # if len(self.orig_data) < 100:
-        #     self.k_mean.append(0)
-        #     self.k_sigma.append(0)
-        # else:
-        #     L = len(self.ln_ratio)-1
-        #     for i in range(L):
-        #         self.ln_ratio[i] = np.log(self.orig_data[-1*L+i]/self.orig_data[-1*L+i-1])
-
         # b = [np.log(p2/p1) for (p1,p2) in izip(self.orig_data[::], self.orig_data[1::])]
-        # var = (np.std(b[i:i+100]) for i in range(0, len(b)-100+1))
-
-        # self.k_sigma = list(var)
-        # if len(self.ln_ratio) == 0 or len(self.orig_data)-1 < 100:
-        #     self.k_mean.append(0)
-        #     self.k_sigma.append(0)
+        # i = len(self.orders_speed_1)
+        # if i< 100:
+        #     self.ln_ratio = 0
         # else:
-        self.k_mean.append(np.mean(self.ln_ratio))
-        self.k_sigma.append(np.std(self.ln_ratio))
+        #     self.ln_ratio = b[i-100:i]
+
+        if len(self.orig_data) < 100:
+            self.k_mean.append(0)
+            self.k_sigma.append(0)
+        else:
+            a = self.orig_data[-100:]
+            self.ln_ratio = map((lambda x: np.log(x[0]/x[1])),izip(a[1:],a))
+
+            self.k_mean.append(np.mean(self.ln_ratio))
+            self.k_sigma.append(np.std(self.ln_ratio))
 
 
 
@@ -266,18 +270,18 @@ class MainFrame(wx.Frame):
         self.dirname = ''
         self.orig_data = []
         self.deal_time = []
-        self.ord_gap = []
-        self.orders_time = []
-        self.orders_type = []
-        self.orders_price = []
-        self.orders_value = []
-        self.orders_action = []
+        # self.ord_gap = []
+        # self.orders_time = []
+        # self.orders_type = []
+        # self.orders_price = []
+        # self.orders_value = []
+        # self.orders_action = []
 
-        self.orders_speed_1 = []
-        self.orders_speed_2 = []
-        self.orders_speed_3 = []
-        self.orders_speed_4 = []
-        self.orders_total = []
+        # self.orders_speed_1 = []
+        # self.orders_speed_2 = []
+        # self.orders_speed_3 = []
+        # self.orders_speed_4 = []
+        # self.orders_total = []
 
         self.k_mean = []
         self.k_sigma = []
@@ -300,35 +304,37 @@ class MainFrame(wx.Frame):
                 
             date = items[2]
             deal_time = datetime.strptime(date, "%Y%m%d%H%M%S%f")
-            if(deal_line_num==1):
-                start_time = deal_time
+            
+            if(deal_line_num==1): start_time = deal_time
 
-            if deal_prev_time == 0:
-                deal_prev_time = deal_time
+            deal_price = float(items[4])
 
-            if deal_prev_time + time_min_step >= deal_time:
+            if deal_prev_time == 0: deal_prev_time = deal_time
+
+            if len(self.orig_data) > 0 and deal_time == deal_prev_time and deal_price == self.orig_data[-1]:
                 continue
             else:
                 deal_prev_time = deal_time
-                self.deal_time.append(deal_time)
-                self.orig_data.append(float(items[4]))
-                self.LoadOrders(deal_time)
-                self.CalcData(deal_time)
-                self.FreeOldOrders(deal_time)
+                self.orig_data.append(deal_price)
+                self.CalcDealData(deal_time)
+                # self.LoadOrders(deal_time)
+                # self.CalcOrdersData(deal_time)
+                # self.FreeOldOrders(deal_time)
 
-                if deal_line_num>self.N_lines and self.N_lines!=0:
-                    end_time = deal_time
-                    break\
+                if len(self.orig_data)%1000 ==0:
+                    print len(self.orig_data)
 
-                if deal_line_num%100 ==0:
-                    print deal_line_num
+                if len(self.orig_data)>self.N_lines and self.N_lines!=0:
+                    break
+
 
         # dlg.Destroy()
-        delta_time = end_time - start_time
+        end_time = deal_time
 
-        self.SetTitle(u"RTSI analysis %d:%d:%d"%(delta_time.seconds/(60*60),(delta_time.seconds/(60))%(60),delta_time.seconds%(60)))
+        # self.SetTitle(u"RTSI analysis %s-%s"%(start_time.isoformat(),end_time.isoformat()))
 
-
+        self.m_date_start.SetLabel(start_time.isoformat())
+        self.m_date_end.SetLabel(end_time.isoformat())
 
         tot_len = len(self.orig_data)
         tot_range = tot_len/2+tot_len%2
@@ -379,21 +385,21 @@ class MainFrame(wx.Frame):
 
         self.fig_ord.clf()
         self.axes = self.fig_ord.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
-        idx = np.arange(len(self.orders_speed_1))
-        if self.m_button_v1.GetValue():
-            self.axes.plot( idx,self.orders_speed_1 )
-        elif self.m_button_v2.GetValue():
-            self.axes.plot( idx,self.orders_speed_2 )
-        elif self.m_button_v3.GetValue():
-            self.axes.plot( idx,self.orders_speed_3 )
-        elif self.m_button_v4.GetValue():
-            self.axes.plot( idx,self.orders_speed_4 )
-        elif self.m_button_tot.GetValue():
-            self.axes.plot( idx,self.orders_total )
-        elif self.m_button_mean.GetValue():
+        idx = np.arange(len(self.k_mean))
+        # if self.m_button_v1.GetValue():
+        #     self.axes.plot( idx,self.orders_speed_1 )
+        # elif self.m_button_v2.GetValue():
+        #     self.axes.plot( idx,self.orders_speed_2 )
+        # elif self.m_button_v3.GetValue():
+        #     self.axes.plot( idx,self.orders_speed_3 )
+        # elif self.m_button_v4.GetValue():
+        #     self.axes.plot( idx,self.orders_speed_4 )
+        # elif self.m_button_tot.GetValue():
+        #     self.axes.plot( idx,self.orders_total )
+        #elif not if
+        if self.m_button_mean.GetValue():
             self.axes.plot( idx,self.k_mean )
         elif self.m_button_sigma.GetValue():
-            idx = np.arange(len(self.k_sigma))
             self.axes.plot( idx,self.k_sigma )
         self.canvas_ord.draw()
 
@@ -413,29 +419,29 @@ class MainFrame(wx.Frame):
         #     self.Draw(self.orig_data)
 
     def OnUpdate(self, event):
-        pass
-        # limit1 = self.m_spin1.GetValue()
-        # limit2 = self.m_spin2.GetValue()
-        # if limit2 > limit1:
-        #     fftdata = np.fft.fft(self.orig_data)
-        #     for i in range(limit1,limit2):
-        #         fftdata[i] = 0
-        #         fftdata[-i] = 0
-        #     fildata = np.fft.ifft(fftdata)
-        #     self.Draw(fildata)
-        # else:
-        #     self.Draw(self.orig_data)
+        # pass
+        limit1 = self.m_spin1.GetValue()
+        limit2 = self.m_spin2.GetValue()
+        if limit2 > limit1:
+            fftdata = np.fft.fft(self.orig_data)
+            for i in range(limit1,limit2):
+                fftdata[i] = 0
+                fftdata[-i] = 0
+            fildata = np.fft.ifft(fftdata)
+            self.Draw(fildata)
+        else:
+            self.Draw(self.orig_data)
 
     def OnSpin(self,event):
-        pass
-        # val1 = self.m_spin1.GetValue()
-        # val2 = self.m_spin2.GetValue()
-        # self.m_spin1.SetRange(0,val2)
-        # tot_len = len(self.orig_data)
-        # tot_range = tot_len/2+tot_len%2
-        # self.m_spin2.SetRange(val1,tot_range)
-        # if self.m_check_live.IsChecked():
-        #     self.OnUpdate(event)
+        # pass
+        val1 = self.m_spin1.GetValue()
+        val2 = self.m_spin2.GetValue()
+        self.m_spin1.SetRange(0,val2)
+        tot_len = len(self.orig_data)
+        tot_range = tot_len/2+tot_len%2
+        self.m_spin2.SetRange(val1,tot_range)
+        if self.m_check_live.IsChecked():
+            self.OnUpdate(event)
 
 
     def Extremes(self,data,diff):
