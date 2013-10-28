@@ -380,13 +380,13 @@ class MainFrame(wx.Frame):
         self.m_spin3.SetValue(DIFF)
         self.m_slide.SetRange(0,tot_len-1)
         self.ord_point = self.m_slide.GetValue()
-        self.Draw(self.orig_data)
+        self.DrawDeals(self.orig_data)
         self.DrawOrders()
 
         self.df.close()
         self.of.close()
 
-    def Draw(self,data):
+    def DrawDeals(self,data):
         self.fig_deal.clf()
         self.axes_plot = self.fig_deal.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
         idx = np.arange(len(self.orig_data))
@@ -454,7 +454,7 @@ class MainFrame(wx.Frame):
         if self.m_check_live_orders.IsChecked():
             self.DrawOrders()
         if self.m_check_live.IsChecked():
-            self.Draw(self.orig_data)
+            self.DrawDeals(self.orig_data)
 
     def OnUpdate(self, event):
         # pass
@@ -466,9 +466,9 @@ class MainFrame(wx.Frame):
                 fftdata[i] = 0
                 fftdata[-i] = 0
             fildata = np.fft.ifft(fftdata)
-            self.Draw(fildata)
+            self.DrawDeals(fildata)
         else:
-            self.Draw(self.orig_data)
+            self.DrawDeals(self.orig_data)
 
     def OnSpin(self,event):
         # pass
