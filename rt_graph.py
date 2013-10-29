@@ -127,6 +127,14 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_autocorr)
         bSizer3.Add( self.m_button_autocorr, 0, wx.ALL, 5 )
 
+        self.m_button_autocorr_mean10 = wx.RadioButton( self, wx.ID_ANY, u"autocorr mean 0-10", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_autocorr_mean10)
+        bSizer3.Add( self.m_button_autocorr_mean10, 0, wx.ALL, 5 )
+
+        self.m_button_autocorr_zero = wx.RadioButton( self, wx.ID_ANY, u"autocorr (0)", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_autocorr_zero)
+        bSizer3.Add( self.m_button_autocorr_zero, 0, wx.ALL, 5 )
+
 
         bSizer1.Add(bSizer3, 0, wx.ALL|wx.EXPAND, 5)
 
@@ -139,6 +147,10 @@ class MainFrame(wx.Frame):
         self.m_check_live_orders = wx.CheckBox(self, wx.ID_ANY, u"Live Update", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_check_live_orders.SetValue(True)
         bSizer4.Add(self.m_check_live_orders, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+
+        self.m_text_slide = wx.StaticText(self, wx.ID_ANY, u"100", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_text_slide.Wrap(-1)
+        bSizer4.Add(self.m_text_slide, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
 
         self.m_button_play = wx.ToggleButton(self, wx.ID_ANY, u"Play", wx.DefaultPosition, wx.DefaultSize, 0)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnTogglePlay, self.m_button_play)
@@ -278,6 +290,8 @@ class MainFrame(wx.Frame):
         if len(self.orig_data) < 100:
             self.k_mean.append(0)
             self.k_sigma.append(0)
+            self.autocorr_mean.append(0)
+            self.autocorr_zero.append(0)
         else:
             a = self.orig_data[-100:]
             self.ln_ratio = map((lambda x: np.log(x[0]/x[1])),izip(a[1:],a))
@@ -288,6 +302,8 @@ class MainFrame(wx.Frame):
             self.k_mean.append(np.mean(self.ln_ratio))
             self.k_sigma.append(np.std(self.ln_ratio))
             self.autocorr.append(newdata[1:])
+            self.autocorr_mean.append(np.mean(newdata[:10]))
+            self.autocorr_zero.append(newdata[0])
 
 
 
@@ -314,6 +330,8 @@ class MainFrame(wx.Frame):
         # self.orders_total = []
 
         self.autocorr = []
+        self.autocorr_mean = []
+        self.autocorr_zero = []
 
         self.k_mean = []
         self.k_sigma = []
@@ -441,9 +459,21 @@ class MainFrame(wx.Frame):
         elif self.m_button_autocorr.GetValue():
             idx = np.arange(len(self.autocorr[self.ord_point]))
             self.axes.plot( idx, self.autocorr[self.ord_point])
+        elif self.m_button_autocorr_mean10.GetValue():
+            self.axes.plot( idx, self.autocorr_mean)
+        elif self.m_button_autocorr_zero.GetValue():
+            self.axes.plot( idx, self.autocorr_zero)
         self.canvas_ord.draw()
 
     def OnUpdateOrders(self,event):
+        if self.m_button_autocorr_zero.GetValue():
+            self.m_slide.SetRange(0,99)
+        else:
+            tot_len = len(self.orig_data)
+            self.m_slide.SetRange(0,tot_len-1)
+        self.ord_point = self.m_slide.GetValue()
+        self.m_text_slide.SetLabel(str(self.ord_point))
+
         self.DrawOrders()
 
     def OnTogglePlay(self,event):
@@ -451,24 +481,25 @@ class MainFrame(wx.Frame):
 
     def OnScroll(self,event):
         self.ord_point = self.m_slide.GetValue()
+        self.m_text_slide.SetLabel(str(self.ord_point))
         if self.m_check_live_orders.IsChecked():
             self.DrawOrders()
         if self.m_check_live.IsChecked():
             self.DrawDeals(self.orig_data)
 
     def OnUpdate(self, event):
-        # pass
-        limit1 = self.m_spin1.GetValue()
-        limit2 = self.m_spin2.GetValue()
-        if limit2 > limit1:
-            fftdata = np.fft.fft(self.orig_data)
-            for i in range(limit1,limit2):
-                fftdata[i] = 0
-                fftdata[-i] = 0
-            fildata = np.fft.ifft(fftdata)
-            self.DrawDeals(fildata)
-        else:
-            self.DrawDeals(self.orig_data)
+        pass
+        # limit1 = self.m_spin1.GetValue()
+        # limit2 = self.m_spin2.GetValue()
+        # if limit2 > limit1:
+        #     fftdata = np.fft.fft(self.orig_data)
+        #     for i in range(limit1,limit2):
+        #         fftdata[i] = 0
+        #         fftdata[-i] = 0
+        #     fildata = np.fft.ifft(fftdata)
+        #     self.DrawDeals(fildata)
+        # else:
+        #     self.DrawDeals(self.orig_data)
 
     def OnSpin(self,event):
         # pass
