@@ -319,7 +319,7 @@ def main():
 		
 	maxpoints,minpoints = Extremes(data_price)
 
-	deals = Normalize(deals)
+	# deals = Normalize(deals)
 
 	# print maxpoints
 	# print minpoints
@@ -351,7 +351,7 @@ def main():
 	fil_deals = None
 	fil_color = []
 	for r in deals:
-		if color[i]>=1 or color[i]<=-1:
+		if color[i]>=2 or color[i]<=-2:
 			if fil_deals == None:
 				fil_deals = r
 			else:
