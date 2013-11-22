@@ -327,22 +327,22 @@ def main():
 	for i in maxpoints:
 		color[i] = 3
 		j=i
-		time1 = timedelta(microseconds=100)
+		time1 = timedelta(seconds=1)
 		while data_time[j]+time1>data_time[i] and j>0:
 			j-=1
 			color[j] = 2
-		time1 = timedelta(seconds=1)
+		time1 = timedelta(seconds=3)
 		while data_time[j]+time1>data_time[i] and j>0:
 			j-=1
 			color[j] = 1
 	for i in minpoints:
 		color[i] = -3
 		j=i
-		time1 = timedelta(microseconds=100)
+		time1 = timedelta(seconds=1)
 		while data_time[j]+time1>data_time[i] and j>0:
 			j-=1
 			color[j] = -2
-		time1 = timedelta(seconds=1)
+		time1 = timedelta(seconds=3)
 		while data_time[j]+time1>data_time[i] and j>0:
 			j-=1
 			color[j] = -1
@@ -351,7 +351,7 @@ def main():
 	fil_deals = None
 	fil_color = []
 	for r in deals:
-		if color[i]>=2 or color[i]<=-2:
+		if color[i]>=1 or color[i]<=-1:
 			if fil_deals == None:
 				fil_deals = r
 			else:

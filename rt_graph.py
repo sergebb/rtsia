@@ -4,6 +4,7 @@ import wx
 import sys
 import numpy as np
 import scipy as sp
+from scipy.stats import poisson, chisquare
 from datetime import datetime
 from datetime import timedelta
 from itertools import izip
@@ -135,6 +136,17 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_autocorr_zero)
         bSizer3.Add( self.m_button_autocorr_zero, 0, wx.ALL, 5 )
 
+        self.m_button_chi_sqr = wx.RadioButton( self, wx.ID_ANY, u"chi square", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_chi_sqr)
+        bSizer3.Add( self.m_button_chi_sqr, 0, wx.ALL, 5 )
+
+        self.m_button_chi_sqr_local = wx.RadioButton( self, wx.ID_ANY, u"chi square loc", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_chi_sqr_local)
+        bSizer3.Add( self.m_button_chi_sqr_local, 0, wx.ALL, 5 )
+
+        self.m_button_poiss = wx.RadioButton( self, wx.ID_ANY, u"Poisson", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_poiss)
+        bSizer3.Add( self.m_button_poiss, 0, wx.ALL, 5 )
 
         bSizer1.Add(bSizer3, 0, wx.ALL|wx.EXPAND, 5)
 
@@ -248,14 +260,14 @@ class MainFrame(wx.Frame):
         time4 = timedelta(seconds=40)
         v1 = v2 = v3 = v4 = 0.0
         num=0.0
-        for i in range(len(self.orders_time)-1,0,-1):
-            num += self.orders_value[i]
-            if self.orders_time[i]+time1<deal_time and v1==0: v1=num
-            if self.orders_time[i]+time2<deal_time and v2==0: v2=num
-            if self.orders_time[i]+time3<deal_time and v3==0: v3=num
-            if self.orders_time[i]+time4<deal_time and v4==0:
-                v4=num
-                break
+        # for i in range(len(self.orders_time)-1,0,-1):
+        #     num += self.orders_value[i]
+        #     if self.orders_time[i]+time1<deal_time and v1==0: v1=num
+        #     if self.orders_time[i]+time2<deal_time and v2==0: v2=num
+        #     if self.orders_time[i]+time3<deal_time and v3==0: v3=num
+        #     if self.orders_time[i]+time4<deal_time and v4==0:
+        #         v4=num
+        #         break
 
         if len(self.orders_total) == 0:
             incr_total = 0
@@ -268,6 +280,29 @@ class MainFrame(wx.Frame):
             else:
                 change = -1
             incr_total += change*self.orders_value[-1*i]
+
+        time_gap = timedelta(seconds = 0.1)
+        v_dist = np.zeros(100)
+        for k in range(100):
+            time_tot_gap = time_gap*k
+            num = 0
+            for i in range(len(self.orders_time) - int(np.sum(v_dist))-1,0,-1):
+                num += 1 #self.orders_value[i]
+                if self.orders_time[i]+time_tot_gap<deal_time:
+                    v_dist[k] = num
+                    break
+
+        poisson_dist_norm = poisson(np.mean(v_dist)).pmf(np.arange(99))
+        # print v_dist_sort,poisson_dist_norm, np.arange(0,5)
+
+        self.poisson.append(poisson_dist_norm)
+        self.chi_sqr_local.append(np.histogram(v_dist,range(100),density=True)[0])
+        # print v_dist, np.histogram(v_dist,range(100))
+
+        if len(self.orders_speed_1)> 50:
+            self.chi_sqr.append( chisquare( np.histogram(v_dist,range(100),density=True)[0], poisson_dist_norm)[0] )
+        else:
+            self.chi_sqr.append(0)
 
         self.orders_total.append(incr_total)
 
@@ -316,18 +351,22 @@ class MainFrame(wx.Frame):
         self.dirname = ''
         self.orig_data = []
         self.deal_time = []
-        # self.ord_gap = []
-        # self.orders_time = []
-        # self.orders_type = []
-        # self.orders_price = []
-        # self.orders_value = []
-        # self.orders_action = []
+        self.ord_gap = []
+        self.orders_time = []
+        self.orders_type = []
+        self.orders_price = []
+        self.orders_value = []
+        self.orders_action = []
 
-        # self.orders_speed_1 = []
-        # self.orders_speed_2 = []
-        # self.orders_speed_3 = []
-        # self.orders_speed_4 = []
-        # self.orders_total = []
+        self.orders_speed_1 = []
+        self.orders_speed_2 = []
+        self.orders_speed_3 = []
+        self.orders_speed_4 = []
+        self.orders_total = []
+
+        self.chi_sqr = []
+        self.chi_sqr_local = []
+        self.poisson = []
 
         self.autocorr = []
         self.autocorr_mean = []
@@ -369,9 +408,9 @@ class MainFrame(wx.Frame):
                 deal_prev_time = deal_time
                 self.orig_data.append(deal_price)
                 self.CalcDealData(deal_time)
-                # self.LoadOrders(deal_time)
-                # self.CalcOrdersData(deal_time)
-                # self.FreeOldOrders(deal_time)
+                self.LoadOrders(deal_time)
+                self.CalcOrdersData(deal_time)
+                self.FreeOldOrders(deal_time)
 
                 if len(self.orig_data)%1000 ==0:
                     print len(self.orig_data)
@@ -441,18 +480,26 @@ class MainFrame(wx.Frame):
         self.fig_ord.clf()
         self.axes = self.fig_ord.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
         idx = np.arange(len(self.k_mean))
-        # if self.m_button_v1.GetValue():
-        #     self.axes.plot( idx,self.orders_speed_1 )
-        # elif self.m_button_v2.GetValue():
-        #     self.axes.plot( idx,self.orders_speed_2 )
-        # elif self.m_button_v3.GetValue():
-        #     self.axes.plot( idx,self.orders_speed_3 )
-        # elif self.m_button_v4.GetValue():
-        #     self.axes.plot( idx,self.orders_speed_4 )
-        # elif self.m_button_tot.GetValue():
-        #     self.axes.plot( idx,self.orders_total )
-        #elif not if
-        if self.m_button_mean.GetValue():
+        if self.m_button_v1.GetValue():
+            self.axes.plot( idx,self.orders_speed_1 )
+        elif self.m_button_v2.GetValue():
+            self.axes.plot( idx,self.orders_speed_2 )
+        elif self.m_button_v3.GetValue():
+            self.axes.plot( idx,self.orders_speed_3 )
+        elif self.m_button_v4.GetValue():
+            self.axes.plot( idx,self.orders_speed_4 )
+        elif self.m_button_tot.GetValue():
+            self.axes.plot( idx,self.orders_total )
+        elif self.m_button_chi_sqr.GetValue():
+            self.axes.plot( idx,np.log(self.chi_sqr) )
+        elif self.m_button_chi_sqr_local.GetValue():
+            idx = np.arange(len(self.chi_sqr_local[self.ord_point]))
+            self.axes.plot( idx, self.chi_sqr_local[self.ord_point])
+        elif self.m_button_poiss.GetValue():
+            idx = np.arange(len(self.poisson[self.ord_point]))
+            self.axes.plot( idx, self.poisson[self.ord_point])
+        
+        elif self.m_button_mean.GetValue():
             self.axes.plot( idx,self.k_mean )
         elif self.m_button_sigma.GetValue():
             self.axes.plot( idx,self.k_sigma )
