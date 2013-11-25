@@ -123,11 +123,6 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_sigma)
         bSizer3.Add( self.m_button_sigma, 0, wx.ALL, 5 )
 
-
-        self.m_button_autocorr = wx.RadioButton( self, wx.ID_ANY, u"autocorr", wx.DefaultPosition, wx.DefaultSize, 0 )
-        self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_autocorr)
-        bSizer3.Add( self.m_button_autocorr, 0, wx.ALL, 5 )
-
         self.m_button_autocorr_mean10 = wx.RadioButton( self, wx.ID_ANY, u"autocorr mean 0-10", wx.DefaultPosition, wx.DefaultSize, 0 )
         self.Bind(wx.EVT_RADIOBUTTON, self.OnUpdateOrders, self.m_button_autocorr_mean10)
         bSizer3.Add( self.m_button_autocorr_mean10, 0, wx.ALL, 5 )
@@ -208,6 +203,8 @@ class MainFrame(wx.Frame):
         # self.spect_sell = np.zeros(self.max_price - self.min_price+1)
 
         self.N_lines = N_LIMIT
+        self.Deal = DEAL
+        self.Order = ORDER
 
     def __del__(self):
         pass
@@ -254,62 +251,70 @@ class MainFrame(wx.Frame):
             else: break
 
     def CalcOrdersData(self,deal_time):
-        time1 = timedelta(seconds=1)
+        time1 = timedelta(seconds=0.1)
         time2 = timedelta(seconds=5)
         time3 = timedelta(seconds=15)
         time4 = timedelta(seconds=40)
         v1 = v2 = v3 = v4 = 0.0
         num=0.0
-        # for i in range(len(self.orders_time)-1,0,-1):
-        #     num += self.orders_value[i]
-        #     if self.orders_time[i]+time1<deal_time and v1==0: v1=num
+        for i in range(len(self.orders_time)-1,0,-1):
+            num += 1#self.orders_value[i]               #orders speed
+            if self.orders_time[i]+time1<deal_time and v1==0:
+                v1=num
+                break
         #     if self.orders_time[i]+time2<deal_time and v2==0: v2=num
         #     if self.orders_time[i]+time3<deal_time and v3==0: v3=num
         #     if self.orders_time[i]+time4<deal_time and v4==0:
         #         v4=num
         #         break
 
-        if len(self.orders_total) == 0:
-            incr_total = 0
-        else:
-            incr_total = self.orders_total[-1]
 
-        for i in range(1, self.new_lines+1):
-            if self.orders_action[-1*i] == 1:
-                change = 1
-            else:
-                change = -1
-            incr_total += change*self.orders_value[-1*i]
+        self.orders_speed_1.append(v1)
+        # self.orders_speed_2.append(v2)
+        # self.orders_speed_3.append(v3)
+        # self.orders_speed_4.append(v4)
 
-        time_gap = timedelta(seconds = 0.1)
-        v_dist = np.zeros(100)
-        for k in range(100):
-            time_tot_gap = time_gap*k
-            num = 0
-            for i in range(len(self.orders_time) - int(np.sum(v_dist))-1,0,-1):
-                num += 1 #self.orders_value[i]
-                if self.orders_time[i]+time_tot_gap<deal_time:
-                    v_dist[k] = num
-                    break
+        # if len(self.orders_total) == 0:
+        #     incr_total = 0
+        # else:                                         #total orders number
+        #     incr_total = self.orders_total[-1]
 
-        poisson_dist_norm = poisson(np.mean(v_dist)).pmf(np.arange(99))
+        # for i in range(1, self.new_lines+1):
+        #     if self.orders_action[-1*i] == 1:
+        #         change = 1
+        #     else:
+        #         change = -1
+        #     incr_total += change*self.orders_value[-1*i]
+
+        # self.orders_total.append(incr_total)
+
+        time_gap = timedelta(seconds = 0.1)             # orders speed in last 100 steps of 0.1 second
+        time_steps = 100
+        time_limit = timedelta(seconds = 10)
+        # v_dist = np.zeros(time_steps)
+        # for k in range(time_steps):
+        #     time_tot_gap = time_gap*k
+        #     num = 0
+        #     for i in range(len(self.orders_time) - int(np.sum(v_dist))-1,0,-1):
+        #         num += 1 #self.orders_value[i]
+        #         if self.orders_time[i]+time_tot_gap<deal_time:
+        #             v_dist[k] = num
+        #             break
+
+        v_dist = self.orders_speed_1[-1*time_steps:]
+
+        poisson_dist_norm = poisson(np.mean(v_dist)).pmf(np.arange(time_steps-1))
         # print v_dist_sort,poisson_dist_norm, np.arange(0,5)
 
-        self.poisson.append(poisson_dist_norm)
-        self.chi_sqr_local.append(np.histogram(v_dist,range(100),density=True)[0])
+        # self.poisson.append(poisson_dist_norm)
+        # self.chi_sqr_local.append(np.histogram(v_dist,range(time_steps),density=True)[0])
         # print v_dist, np.histogram(v_dist,range(100))
-
-        if len(self.orders_speed_1)> 50:
-            self.chi_sqr.append( chisquare( np.histogram(v_dist,range(100),density=True)[0], poisson_dist_norm)[0] )
+                                                        # comparison of orders speed distribution with poisson destribution
+        if len(self.orig_data)> 50:
+            self.chi_sqr.append( chisquare( np.histogram(v_dist,range(time_steps),density=True)[0], poisson_dist_norm)[0] )
         else:
             self.chi_sqr.append(0)
 
-        self.orders_total.append(incr_total)
-
-        self.orders_speed_1.append(v1)
-        self.orders_speed_2.append(v2)
-        self.orders_speed_3.append(v3)
-        self.orders_speed_4.append(v4)
 
         
 
@@ -336,7 +341,6 @@ class MainFrame(wx.Frame):
 
             self.k_mean.append(np.mean(self.ln_ratio))
             self.k_sigma.append(np.std(self.ln_ratio))
-            self.autocorr.append(newdata[1:])
             self.autocorr_mean.append(np.mean(newdata[:10]))
             self.autocorr_zero.append(newdata[0])
 
@@ -345,8 +349,8 @@ class MainFrame(wx.Frame):
 
     def OnOpen(self,event):
 
-        self.df = open(DEAL,"r")
-        self.of = open(ORDER,"r")
+        self.df = open(self.Deal,"r")
+        self.of = open(self.Order,"r")
 
         self.dirname = ''
         self.orig_data = []
@@ -368,7 +372,6 @@ class MainFrame(wx.Frame):
         self.chi_sqr_local = []
         self.poisson = []
 
-        self.autocorr = []
         self.autocorr_mean = []
         self.autocorr_zero = []
 
@@ -452,10 +455,10 @@ class MainFrame(wx.Frame):
         # self.axes_plot.plot( idx,self.ord_gap )
         diff = self.m_spin3.GetValue()/10.0
         (maxp,minp) = self.Extremes(self.orig_data,diff)
-        maxsub = self.GetSub(self.orig_data,maxp)
-        self.axes_plot.plot( maxp,maxsub,'ro' )
-        minsub = self.GetSub(self.orig_data,minp)
-        self.axes_plot.plot( minp,minsub,'go' )
+        # maxsub = self.GetSub(self.orig_data,maxp)
+        # self.axes_plot.plot( maxp,maxsub,'ro' )
+        # minsub = self.GetSub(self.orig_data,minp)
+        # self.axes_plot.plot( minp,minsub,'go' )
         self.axes_plot.plot( self.ord_point,self.orig_data[self.ord_point],'yo' )
         self.canvas.draw()
 
@@ -503,9 +506,6 @@ class MainFrame(wx.Frame):
             self.axes.plot( idx,self.k_mean )
         elif self.m_button_sigma.GetValue():
             self.axes.plot( idx,self.k_sigma )
-        elif self.m_button_autocorr.GetValue():
-            idx = np.arange(len(self.autocorr[self.ord_point]))
-            self.axes.plot( idx, self.autocorr[self.ord_point])
         elif self.m_button_autocorr_mean10.GetValue():
             self.axes.plot( idx, self.autocorr_mean)
         elif self.m_button_autocorr_zero.GetValue():
@@ -608,10 +608,24 @@ def main():
     except:
         N_lines = N_LIMIT
 
+    try:
+        Deal = sys.argv[2]
+        open(Deal,"r").close()
+    except:
+        Deal = DEAL
+
+    try:
+        Order = sys.argv[3]
+        open(Order,"r").close()
+    except:
+        Order = ORDER
+
     app = wx.App(False)
     frame = MainFrame(None)
     frame.Show()
     frame.N_lines = N_lines
+    frame.Deal = Deal
+    frame.Order = Order
     app.MainLoop()
 
 
