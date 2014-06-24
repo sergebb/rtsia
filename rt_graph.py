@@ -440,11 +440,18 @@ class MainFrame(wx.Frame):
         self.m_spin3.SetValue(DIFF)
         self.m_slide.SetRange(0,tot_len-1)
         self.ord_point = self.m_slide.GetValue()
+        self.CalculateExtremes(self.orig_data)
         self.DrawDeals(self.orig_data)
         self.DrawOrders()
 
         self.df.close()
         self.of.close()
+
+
+    def CalculateExtremes(self,data):
+        diff = self.m_spin3.GetValue()/10.0
+        (self.maxp,self.minp) = self.Extremes(self.orig_data,diff)
+
 
     def DrawDeals(self,data):
         self.fig_deal.clf()
@@ -453,12 +460,11 @@ class MainFrame(wx.Frame):
         self.axes_plot.plot( idx,self.orig_data )
         # self.axes_plot.plot( idx,data )
         # self.axes_plot.plot( idx,self.ord_gap )
-        diff = self.m_spin3.GetValue()/10.0
-        (maxp,minp) = self.Extremes(self.orig_data,diff)
-        # maxsub = self.GetSub(self.orig_data,maxp)
-        # self.axes_plot.plot( maxp,maxsub,'ro' )
-        # minsub = self.GetSub(self.orig_data,minp)
-        # self.axes_plot.plot( minp,minsub,'go' )
+
+        maxsub = self.ExtractValues(self.orig_data,self.maxp)
+        self.axes_plot.plot( self.maxp,maxsub,'ro' )
+        minsub = self.ExtractValues(self.orig_data,self.minp)
+        self.axes_plot.plot( self.minp,minsub,'go' )
         self.axes_plot.plot( self.ord_point,self.orig_data[self.ord_point],'yo' )
         self.canvas.draw()
 
@@ -479,7 +485,8 @@ class MainFrame(wx.Frame):
         #         spect_buy_tmp[self.orders_price[i] - self.min_price]+=change*self.orders_value[i]
         #     elif self.orders_type[i] == 'S':
         #         spect_sell_tmp[self.orders_price[i] - self.min_price]+=change*self.orders_value[i]
-
+        maxvalue = 0
+        minvalue = 0
         self.fig_ord.clf()
         self.axes = self.fig_ord.add_axes([0.1, 0.1, 0.8, 0.8]) #size of axes to match size of figure
         idx = np.arange(len(self.k_mean))
@@ -510,6 +517,11 @@ class MainFrame(wx.Frame):
             self.axes.plot( idx, self.autocorr_mean)
         elif self.m_button_autocorr_zero.GetValue():
             self.axes.plot( idx, self.autocorr_zero)
+
+        for dot in self.maxp:
+            self.axes.axvline(dot,color='r')
+        for dot in self.minp:
+            self.axes.axvline(dot,color='g')
         self.canvas_ord.draw()
 
     def OnUpdateOrders(self,event):
@@ -535,18 +547,20 @@ class MainFrame(wx.Frame):
             self.DrawDeals(self.orig_data)
 
     def OnUpdate(self, event):
-        pass
-        # limit1 = self.m_spin1.GetValue()
-        # limit2 = self.m_spin2.GetValue()
-        # if limit2 > limit1:
-        #     fftdata = np.fft.fft(self.orig_data)
-        #     for i in range(limit1,limit2):
-        #         fftdata[i] = 0
-        #         fftdata[-i] = 0
-        #     fildata = np.fft.ifft(fftdata)
-        #     self.DrawDeals(fildata)
-        # else:
-        #     self.DrawDeals(self.orig_data)
+        
+        limit1 = self.m_spin1.GetValue()
+        limit2 = self.m_spin2.GetValue()
+        self.CalculateExtremes(self.orig_data)
+        if limit2 > limit1:
+            fftdata = np.fft.fft(self.orig_data)
+            for i in range(limit1,limit2):
+                fftdata[i] = 0
+                fftdata[-i] = 0
+            fildata = np.fft.ifft(fftdata)
+            self.DrawDeals(fildata)
+        else:
+            self.DrawDeals(self.orig_data)
+        self.DrawOrders()
 
     def OnSpin(self,event):
         # pass
@@ -594,13 +608,13 @@ class MainFrame(wx.Frame):
                         lastmin = data[i]
                         lastIsMax = False
 
-        return maxpoints, minpoints     
+        return maxpoints, minpoints
 
-    def GetSub(self,data,idx):
-        sub = []
+    def ExtractValues(self,data,idx):
+        values = []
         for i in range(len(idx)):
-            sub.append(data[idx[i]]) 
-        return sub
+            values.append(data[idx[i]])
+        return values
 
 def main():
     try:
